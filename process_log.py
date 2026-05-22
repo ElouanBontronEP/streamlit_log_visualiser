@@ -105,12 +105,55 @@ def process_log(data, input_exports_csv, input_exports_json, output_exports_csv,
     step_summary.drop(columns=['step_id'], inplace=True)
     step_summary = step_summary.rename(columns={'asset_step': 'step_id'})
 
-    date = status['completed_at'][:10]
-    month = date[5:7]
-    year = date[:4]
+    launch_timestamp = str(status['completed_at'])
 
-    step_summary['time'] = pd.to_datetime(step_summary.apply(lambda row: dt.datetime(int(year), int(month), int(row['asset_step_day_local_time']), int(row['asset_step_hour_local_time']), int(row['asset_step_minute_local_time'])), axis=1))
+    date_launch = launch_timestamp[:10]
+    day_launch = int(date_launch[8:10])
+    month_launch = int(date_launch[5:7])
+    year_launch = int(date_launch[:4])
 
+    days_by_months = {
+        1: 31,
+        2: 29 if (year_launch % 4 == 0 and year_launch % 100 != 0) or (year_launch % 400 == 0) else 28,
+        3: 31,
+        4: 30,
+        5: 31,
+        6: 30,
+        7: 31,
+        8: 31,
+        9: 30,
+        10: 31,
+        11: 30,
+        12: 31
+    }
+
+    step_summary['month'] = month_launch
+    step_summary['year'] = year_launch
+
+    if day_launch == days_by_months[month_launch]:
+
+        new_month = (step_summary['asset_step_day_local_time'] == 1)
+        not_december = (step_summary['month'] != 12)
+        step_summary.loc[new_month & not_december, 'month'] = step_summary.loc[new_month & not_december, 'month'] + 1
+        step_summary.loc[new_month & ~not_december, 'month'] = 1
+        step_summary.loc[new_month & ~not_december, 'year'] = step_summary.loc[new_month & ~not_december, 'year'] + 1
+
+    elif day_launch == 1:
+        days_in_month = step_summary['month'].map(days_by_months)
+        new_month = (step_summary['asset_step_day_local_time'] == days_in_month)
+        not_january = (step_summary['month'] != 1)
+        step_summary.loc[new_month & not_january, 'month'] = step_summary.loc[new_month & not_january, 'month'] - 1
+        step_summary.loc[new_month & ~not_january, 'month'] = 12
+        step_summary.loc[new_month & ~not_january, 'year'] = step_summary.loc[new_month & ~not_january, 'year'] - 1        
+
+    step_summary['time'] = pd.to_datetime({
+        'year': step_summary['year'],
+        'month': step_summary['month'],
+        'day': step_summary['asset_step_day_local_time'],
+        'hour': step_summary['asset_step_hour_local_time'],
+        'minute': step_summary['asset_step_minute_local_time']
+    })
+    
     step_summary['power_balance'] = step_summary[[col for col in step_summary.columns if col.endswith('_kw') and 'curtailment' not in col]].sum(axis=1)
 
     step_summary['is_power_balance_ok'] = step_summary['power_balance'].abs() < 0.01
