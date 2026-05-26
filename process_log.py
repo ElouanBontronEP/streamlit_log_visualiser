@@ -21,8 +21,6 @@ def process_log(data, input_exports_csv, input_exports_json, output_exports_csv,
     for i in range(len(input_data)):
         inputs[f'{input_data[i]["id"]}'[:-4]] = pd.DataFrame(input_data[i]["values"], columns=input_data[i]["fields"])
 
-    inputs["ASSETS"]
-
     inputs["ASSETS"]['compensation_model'] = inputs["ASSETS"]['compensation_model'].astype("str")
     inputs["ASSETS"]['var_cost_model'] = inputs["ASSETS"]['var_cost_model'].astype("str")
     inputs['ASSETS'].loc[inputs['ASSETS']['compensation_model'] == "-1.0", 'compensation_model'] = "NO_COMPENSATION_MODEL"
@@ -206,6 +204,8 @@ def process_log(data, input_exports_csv, input_exports_json, output_exports_csv,
 
     launch_timestamp = str(status['completed_at'])
     results_timestamp = str(step_summary['time'].min())
+
+    site_id = inputs['SITE_STEPS']['site_id'].unique()[0] # assuming only one site per log for now
    
-    return files_csv, files_json, log_decoded, step_summary, assets, launch_timestamp, results_timestamp
+    return files_csv, files_json, log_decoded, step_summary, assets, launch_timestamp, results_timestamp, site_id
 
